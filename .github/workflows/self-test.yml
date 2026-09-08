@@ -89,3 +89,9 @@ jobs:
       # cleanly and quietly does nothing, which is the whole subject here.
       - name: Re-derive the manifest claims from the files on disk
         run: python .github/check_plugin_manifest.py
+
+      # And the checker itself gets the same treatment the tool does: broken on
+      # purpose, one thing at a time, against a copy. It passed a plugin with
+      # every skill and command deleted until this existed.
+      - name: The manifest checker refuses what it should refuse
+        run: python .github/check_plugin_manifest_selftest.py
