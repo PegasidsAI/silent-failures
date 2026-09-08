@@ -81,6 +81,37 @@ def behauptet():
     return gefunden
 
 
+# The two READMEs were the places I remembered. The count also sits in the
+# workflow's own comments, where it drifted unnoticed for exactly as long as
+# this check has existed — because the check covered the documents I had in
+# mind rather than every place the number occurs. A check with a hand-picked
+# denominator is the first incident in this archive in miniature. So the
+# denominator is now derived: every text file that talks about the self-test.
+STREUUNG = (
+    (re.compile(r"(\d+)\s*(?:\*\*)?\s*cases\b"), ("gesamt", "mit_ergebnis")),
+    (re.compile(r"(\d+)(?:\*\*)?\s+(?:of them\s+)?must not\b"), ("nicht_gruen",)),
+)
+UEBERSPRINGEN = {".git", "__pycache__", ".state"}
+
+
+def verstreute_zahlen():
+    """Every number about the self-test, wherever it is written down."""
+    treffer = []
+    for pfad in sorted(WURZEL.rglob("*")):
+        if pfad.is_dir() or pfad.suffix not in (".md", ".yml", ".yaml"):
+            continue
+        if any(teil in UEBERSPRINGEN for teil in pfad.parts):
+            continue
+        text = pfad.read_text(encoding="utf-8")
+        if "self-test" not in text.lower() and "selftest" not in text.lower():
+            continue
+        rel = pfad.relative_to(WURZEL).as_posix()
+        for muster, schluessel in STREUUNG:
+            for m in muster.finditer(text):
+                treffer.append((rel, int(m.group(1)), schluessel, m.group(0).strip()))
+    return treffer
+
+
 def main():
     ist = wirklich()
     print("Measured from an actual run:")
@@ -94,10 +125,21 @@ def main():
             if behauptung != ist[schluessel]:
                 abweichungen.append((datei, schluessel, behauptung, ist[schluessel]))
 
-    if abweichungen:
-        print("The documentation states numbers the code does not produce:\n")
+    verstreut = verstreute_zahlen()
+    falsch = [(d, z, s, m) for d, z, s, m in verstreut
+              if z not in {ist[k] for k in s}]
+    print("Scanned %d stated numbers across every file that mentions the self-test."
+          % len(verstreut))
+    print()
+
+    if abweichungen or falsch:
+        print("Numbers are written down that the code does not produce:\n")
         for datei, schluessel, sagt, ist_wert in abweichungen:
-            print("  %-16s %-13s states %d, actual %d" % (datei, schluessel, sagt, ist_wert))
+            print("  %-28s %-13s states %d, actual %d" % (datei, schluessel, sagt, ist_wert))
+        for datei, zahl, schluessel, roh in falsch:
+            print("  %-28s %-13s says %r, actual %s"
+                  % (datei, "/".join(schluessel), roh,
+                     " or ".join(str(ist[k]) for k in schluessel)))
         print("\nUpdate the prose, or the claim is false the moment someone checks it.")
         return 1
 

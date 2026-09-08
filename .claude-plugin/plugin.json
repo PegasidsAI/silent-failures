@@ -1,0 +1,21 @@
+{
+  "name": "effect-check",
+  "displayName": "effect_check",
+  "description": "Assert what an unattended job did to the world, instead of trusting what it returned. Four check types, each from a real incident.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Maximilian Adams",
+    "url": "https://github.com/PegasidsAI"
+  },
+  "homepage": "https://github.com/PegasidsAI/silent-failures",
+  "repository": "https://github.com/PegasidsAI/silent-failures",
+  "license": "Apache-2.0",
+  "keywords": [
+    "monitoring",
+    "assertions",
+    "scheduled-jobs",
+    "cron",
+    "silent-failure",
+    "observability"
+  ]
+}

@@ -1,8 +1,13 @@
 name: self-test
 
-# The self-test is the claim this repository makes about itself: 45 cases, of
-# which 27 must not come out green. Running it here means the claim is checked
+# The self-test is the claim this repository makes about itself: 57 cases, of
+# which 34 must not come out green. Running it here means the claim is checked
 # rather than asserted — which is, after all, the whole argument.
+#
+# These two numbers were wrong for days. The check that guards them read the
+# two READMEs and not this file, so the drift happened in the comment above the
+# check that exists to prevent drift. It now scans every file that mentions the
+# self-test, because a denominator chosen by hand is the first incident here.
 
 on:
   push:
@@ -29,7 +34,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
-      # 45 cases. 27 of them must fail, skip, or be rejected as a bad spec;
+      # 57 cases. 34 of them must fail, skip, or be rejected as a bad spec;
       # the run exits non-zero if any of those comes out green.
       - name: Self-test
         run: python tool/effect_check.py selftest
@@ -68,3 +73,19 @@ jobs:
       # this archive; it does not get to happen on its own front page.
       - name: Compare the stated counts against a real run
         run: python .github/check_documented_counts.py
+
+  plugin-manifest:
+    name: the plugin manifest points at things that exist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # A manifest is a set of claims — this plugin lives at this path, this
+      # command runs that script — and every one of them can be wrong while the
+      # JSON stays valid. The failure then looks like a plugin that installs
+      # cleanly and quietly does nothing, which is the whole subject here.
+      - name: Re-derive the manifest claims from the files on disk
+        run: python .github/check_plugin_manifest.py
