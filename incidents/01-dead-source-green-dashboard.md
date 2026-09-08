@@ -1,6 +1,6 @@
 # The dashboard was full. The source had been dead for seven weeks.
 
-*A post-mortem on a silent ingest failure. Status: unresolved.*
+*A post-mortem on a silent ingest failure. Unresolved when this was published; resolved hours later, by someone forwarding two URLs.*
 
 ---
 
@@ -22,6 +22,8 @@ Between the morning of 17 July and the small hours of 18 July 2026, the upstream
 
 And the response phrase states the reason outright: *the module is deactivated.* Not a timeout, not a rate limit, not a move — the interface says what happened to it. Reproduced with a browser user-agent, with `Accept: application/json`, and against `/system`; the web interface itself still returns `200`, so it is the API that is off and not the system behind it.
 
+> **Correction, added on the day this was published.** The sentence above is wrong, and I am leaving it standing because being wrong in exactly that way is the point of this document. It *was* a move. The old host's message was accurate about the old host and said nothing about the situation, and I read a confidence into it that it never carried — the same mistake as the dashboard, one layer down, made by me while writing about the dashboard. See the resolution at the end.
+
 The ingest kept running every night. It has been running ever since.
 
 Here is what arrived in the store, counted per publication month directly against the vector database, filtered to the affected document type:
@@ -38,7 +40,7 @@ Here is what arrived in the store, counted per publication month directly agains
 
 Two chunks in July. The source did not degrade. It stopped.
 
-**Two things are visible in that table, and I want to separate them honestly.** The cliff between June and July is the incident: the API was switched off. The decline from March to June is something else — I have not established whether it reflects genuinely lower publication volume, a seasonal pattern, or an earlier problem I also missed. I do not know, so I am not claiming it.
+**Two things are visible in that table, and I want to separate them honestly.** The cliff between June and July is the incident: the API stopped answering. The decline from March to June is something else — I have not established whether it reflects genuinely lower publication volume, a seasonal pattern, or an earlier problem I also missed. I do not know, so I am not claiming it.
 
 ## How long it went unnoticed, and why
 
@@ -129,7 +131,21 @@ Their count: in two documents, most sentences were already immune because observ
 
 This is not a monitoring recommendation. It is a writing rule for anything an automated system derives from a corpus whose currency it does not itself guarantee, and it costs nothing to adopt. It also converges with something a second colleague arrived at independently while classifying notes: a claim about a *state* is worthless without the date it was checked, whereas a claim about a *property* does not need one. Same conclusion, one from drafting documents, one from building a checker.
 
-## Current status: unresolved
+## Resolved, 8 September 2026 — and the resolution is the interesting part
+
+**The interface had not been switched off. It had moved to a different host.** The old one answered `500` rather than redirecting, which is why weeks of measurement could not tell the two apart: **from the outside, a move without a redirect is indistinguishable from a shutdown.** Even the server's own message — *the module is deactivated* — was true of the old host and misleading about the situation.
+
+The resolution came from a person forwarding two URLs. Not from anything I built.
+
+One correction to the root cause above, and it is the part worth keeping. **Detection stopped being the problem well before this was fixed.** The jobs had been reporting failure honestly since 4 September and the dashboard was red. What stayed unresolved was the *diagnosis*: my own note said, correctly, that the cause could only be established by asking the operator. That sentence sat there for weeks, with no date and no name against it.
+
+> A documented next step with no owner and no deadline is not a next step. It is a description of one.
+
+The repair then contained three silent traps of its own, which is a small lesson about confidence in its own right: the URL scheme had changed, the sort order had flipped, and the crawler wrote to a collection the search does not read. Swapping the base URL alone — my first instinct, stated as though it were a finding — would have produced a corpus nobody could find, with a clean exit code.
+
+*The section below is left as it was written, before any of this was known.*
+
+## Status at the time of writing: unresolved
 
 I am not writing this from the comfortable side of a fix. As of 8 September 2026 the endpoints still return 503 and 500, and the gap is over two months wide.
 

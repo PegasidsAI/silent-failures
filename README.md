@@ -63,7 +63,7 @@ It is also why, in my own setup, an unattended check reports *outward* — to a 
 
 ### The four, in reading order
 
-1. [The dashboard was full. The source had been dead for seven weeks.](incidents/01-dead-source-green-dashboard.md) — *unresolved*
+1. [The dashboard was full. The source had been dead for seven weeks.](incidents/01-dead-source-green-dashboard.md) — *resolved on the day of publication, and the resolution is the interesting part*
 2. [My documentation reported success.](incidents/02-my-documentation-reported-success.md)
 3. [The read path was a write path.](incidents/03-the-read-path-was-a-write-path.md)
 4. [Ready, but it never ran.](incidents/04-ready-but-never-ran.md)
@@ -113,7 +113,7 @@ The run count is stated because I nearly published a different pair. The two fig
 
 ## What I am not claiming
 
-I did not catch any of these on the day they happened. Several are still unresolved as of publication — where that is the case, it says so in the write-up.
+I did not catch any of these on the day they happened. The first was still open when this was published, and was resolved hours later — by a person forwarding two URLs, not by anything in here. Where something remains open, the write-up says so.
 
 Two candidate incidents were removed during review: one because the only evidence was a note in my own documentation rather than a measurement, one because describing the defence would have exposed a bypass that is not yet closed. **That review process is described too**, because it is the more useful part.
 
