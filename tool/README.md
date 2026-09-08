@@ -145,6 +145,7 @@ Every probe that reads a path also accepts `must_exist` (see below). `command` t
 | `not_contains` | `effect` | the result must **not** contain this — the failure marker |
 | `max_age_hours` | `freshness` | how old the observation may be |
 | `each_min` | `diversity` | every group must reach this — **not** the total |
+| `min_ratio_of_median` | `diversity` | every group must reach this fraction of the median across groups |
 | `min_groups`, `require_groups` | `diversity` | how many groups, and which ones by name |
 | `allow_empty` | `diversity` | permit a result with no groups at all |
 
@@ -171,6 +172,14 @@ This tool had the same hole and no warning about it. `not_contains` is the answe
 
 The habit worth taking from it is not the key but the question: **when you write a check, look at what the failure output actually says.** Almost nobody does, which is why this class survives so long.
 
+`each_min` and `min_ratio_of_median` answer different questions and belong together.
+
+The **ratio** catches a single contributor that has fallen behind its peers, even when nobody remembered to maintain a threshold. It came from a search path that returned 8 candidates where its peers returned 55: no total would have shown it, because the peers carried the sum, and any absolute floor set below 8 would have stayed quiet.
+
+The **floor** catches the case the ratio cannot see. If every contributor collapses together, the ratio stays perfectly healthy while the whole thing fails. The self-test keeps that case as a passing test on the ratio and a failing one on the floor, so the limit is not forgotten.
+
+Where the median is taken over fewer than three groups, the result says so rather than passing quietly.
+
 An `effect` assertion stated as a change needs a snapshot; one stated absolutely does not.
 
 ## What it deliberately does not do
@@ -193,9 +202,9 @@ An `effect` assertion stated as a change needs a snapshot; one stated absolutely
 
 ## The self-test
 
-`selftest` runs **53 cases** against a temporary directory: 42 that assert a run outcome, and 11 that assert a property of the tool itself.
+`selftest` runs **57 cases** against a temporary directory: 46 that assert a run outcome, and 11 that assert a property of the tool itself.
 
-Of those 42, only **10 may come out green**. The other 32 must not — 22 failures, 7 coverage gaps, 3 rejected specifications — and the self-test fails if any of them passes. Among them:
+Of those 46, only **12 may come out green**. The other 34 must not — 24 failures, 7 coverage gaps, 3 rejected specifications — and the self-test fails if any of them passes. Among them:
 
 - a job that wrote *only a header row*, which a size threshold alone would wave through
 - a source that died while the **total stayed high** because others covered for it

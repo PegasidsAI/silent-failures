@@ -475,7 +475,8 @@ EXPECT_KEYS = {
     "effect": {"delta_min", "delta_max", "unchanged", "min", "max",
                "contains", "not_contains", "equals"},
     "freshness": {"max_age_hours"},
-    "diversity": {"each_min", "min_groups", "require_groups", "allow_empty"},
+    "diversity": {"each_min", "min_ratio_of_median", "min_groups",
+                  "require_groups", "allow_empty"},
     "invariant": set(),
 }
 
@@ -642,16 +643,44 @@ def check_diversity(chk, before, after):
                         "result is genuinely acceptable here.")
 
     each_min = exp.get("each_min", 1)
-    problems = []
+    problems, hinweise = [], []
     starved = sorted(g for g, n in after.items() if n < each_min)
     if starved:
         problems.append("below %s: %s" % (each_min, ", ".join(starved)))
+    if "min_ratio_of_median" in exp:
+        # An absolute floor needs maintaining as the system grows, and a floor
+        # set once goes stale silently. This compares each group against the
+        # others instead: a contributor that has fallen far behind its peers is
+        # visible even when nobody remembered to update a number.
+        #
+        # It came from a search path that returned 8 candidates where its peers
+        # returned 55. No total would have shown it — the peers carried the sum —
+        # and any absolute threshold set below 8 would have stayed quiet.
+        #
+        # It does NOT replace `each_min`. If every group degrades together the
+        # ratio stays healthy while the whole thing collapses, so the two
+        # answer different questions and belong together.
+        werte = sorted(after.values())
+        n = len(werte)
+        median = werte[n // 2] if n % 2 else (werte[n // 2 - 1] + werte[n // 2]) / 2.0
+        schwelle = median * exp["min_ratio_of_median"]
+        abgehaengt = sorted(g for g, v in after.items() if v < schwelle)
+        if abgehaengt:
+            problems.append("far below the others (median %g, floor %g): %s"
+                            % (median, schwelle, ", ".join(abgehaengt)))
+        if n < 3:
+            # Two groups make a weak median and one makes a meaningless one.
+            # Said out loud in the result rather than passed over, because a
+            # check whose strength nobody can judge is worse than no check.
+            hinweise.append("the median is over only %d group(s), so this "
+                            "comparison is weak" % n)
     if "min_groups" in exp and len(after) < exp["min_groups"]:
         problems.append("only %d groups, expected %s" % (len(after), exp["min_groups"]))
     for required in exp.get("require_groups", []):
         if required not in after:
             problems.append("group %r absent entirely" % required)
     total = sum(after.values())
+    anhang = ("  [" + "; ".join(hinweise) + "]") if hinweise else ""
     if problems:
         # Only say the total looks healthy when it actually would. The phrase
         # exists to name the trap — a comfortable sum hiding a dead
@@ -659,8 +688,8 @@ def check_diversity(chk, before, after):
         deckt_zu = total >= each_min * max(len(after), 1)
         vorspann = ("total %d looks healthy, but " % total if deckt_zu
                     else "measured total %d; " % total)
-        return "fail", vorspann + "; ".join(problems)
-    return "pass", "%d groups, each >= %s (total %d)" % (len(after), each_min, total)
+        return "fail", vorspann + "; ".join(problems) + anhang
+    return "pass", "%d groups, each >= %s (total %d)%s" % (len(after), each_min, total, anhang)
 
 
 def check_invariant(chk, before, after):
@@ -1131,6 +1160,34 @@ def selftest():
                probe={"kind": "group_counts", "source": "json", "path": counts,
                       "pointer": "per_source"}, expect={"each_min": 5}),
              lambda: write("out/sources.json", json.dumps({"per_source": {}})), "fail")
+
+        rollen = write("out/rollen.json", json.dumps(
+            {"r": {"owner": 8, "fraktion": 55, "organisation": 52}}))
+        spr = S(type="diversity",
+                probe={"kind": "group_counts", "source": "json", "path": rollen, "pointer": "r"},
+                expect={"each_min": 1, "min_ratio_of_median": 0.5})
+        case("one contributor far below its peers, while the total looks fine",
+             spr, lambda: None, "fail")
+        case("comparable contributors pass", spr,
+             lambda: write("out/rollen.json",
+                           json.dumps({"r": {"owner": 100, "fraktion": 55, "organisation": 52}})),
+             "pass")
+        # The honest limit of the ratio, kept as a test so nobody forgets it:
+        # when every contributor collapses together the ratio stays healthy.
+        # Only the absolute floor catches that, which is why both belong in a
+        # spec and why this case must pass on the ratio and fail on each_min.
+        case("all contributors collapse together — the ratio alone would not notice",
+             S(type="diversity",
+               probe={"kind": "group_counts", "source": "json", "path": rollen, "pointer": "r"},
+               expect={"min_ratio_of_median": 0.5}),
+             lambda: write("out/rollen.json",
+                           json.dumps({"r": {"owner": 1, "fraktion": 1, "organisation": 1}})),
+             "pass")
+        case("and the absolute floor is what catches it",
+             S(type="diversity",
+               probe={"kind": "group_counts", "source": "json", "path": rollen, "pointer": "r"},
+               expect={"each_min": 20, "min_ratio_of_median": 0.5}),
+             lambda: None, "fail")
 
         print("\n invariant")
         tree = os.path.join(tmp, "store")
