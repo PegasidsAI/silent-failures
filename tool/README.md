@@ -100,6 +100,12 @@ Exit code `2` exists to distinguish incomplete coverage from an evaluated failur
 
 The exit code is a summary, not the evidence. Read the coverage line.
 
+### Under `run`, the wrapped command is treated asymmetrically
+
+A **zero** exit from the wrapped job proves nothing, so it never counts as success — the assertions decide. A **non-zero** exit is the job telling you it did not finish, and that is not swallowed: the run comes out failed even if every assertion holds.
+
+An earlier version returned only the verify result. A reviewer refused to wrap a nightly task with it for exactly that reason — the job could crash, the assertions could be green, and the task would report success. That is the wrapper from the first incident in this archive, one layer up, inside the tool written about it.
+
 ## Spec reference
 
 Keys beginning with `_` are ignored, so a spec can carry its own reasoning. Any **other** unrecognised `expect` key is an error: a misspelt one used to be ignored, which quietly turned a stated threshold into "it grew by at least one".
@@ -187,9 +193,9 @@ An `effect` assertion stated as a change needs a snapshot; one stated absolutely
 
 ## The self-test
 
-`selftest` runs **49 cases** against a temporary directory: 38 that assert a run outcome, and 11 that assert a property of the tool itself.
+`selftest` runs **53 cases** against a temporary directory: 42 that assert a run outcome, and 11 that assert a property of the tool itself.
 
-Of those 38, only **9 may come out green**. The other 29 must not — 20 failures, 6 coverage gaps, 3 rejected specifications — and the self-test fails if any of them passes. Among them:
+Of those 42, only **10 may come out green**. The other 32 must not — 22 failures, 7 coverage gaps, 3 rejected specifications — and the self-test fails if any of them passes. Among them:
 
 - a job that wrote *only a header row*, which a size threshold alone would wave through
 - a source that died while the **total stayed high** because others covered for it

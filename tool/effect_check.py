@@ -128,10 +128,15 @@ def _absent(cfg, path, phase, zero_at_snapshot=False):
     by file_text, and meaningless for file_size, which reported a missing file
     as the number 0.
     """
+    if phase == "snapshot" and zero_at_snapshot:
+        # Before the run, a missing file is legitimately zero — the job may be
+        # about to create it. `must_exist` is a statement about the OUTCOME, so
+        # enforcing it here would refuse every job whose whole purpose is to
+        # produce the file, and the assertion would be skipped for the one case
+        # it was written for.
+        return 0
     if cfg.get("must_exist"):
         return Missing(path)
-    if zero_at_snapshot and phase == "snapshot":
-        return 0
     raise Unreadable("file not found: %s" % path)
 
 
@@ -950,6 +955,39 @@ def selftest():
             for r in results:
                 print("          %s %s: %s" % (r.status, r.cid, r.detail))
 
+    def wrapper_fall(label, zeilen, want, must_exist=False):
+        """Exercise the whole `run` branch, including what it returns.
+
+        A reviewer refused to use `run` around a nightly job because an earlier
+        version returned only the verify result: the job could crash, the
+        assertions could be green, and the task reported success. That is the
+        wrapper from the first incident in this archive, one layer up.
+        """
+        ran[0] += 1
+        job = os.path.join(tmp, "job_%d.py" % ran[0])
+        with open(job, "w", encoding="utf-8", newline=chr(10)) as f:
+            f.write(chr(10).join(zeilen) + chr(10))
+        ziel = os.path.join(tmp, "wrap_%d.txt" % ran[0])
+        spec = {"name": "wrap", "checks": [{
+            "id": "grew", "type": "effect",
+            "probe": {"kind": "file_size", "path": ziel, "must_exist": must_exist},
+            "expect": {"delta_min": 1}}]}
+        spec_pfad = os.path.join(tmp, "wrap_%d.json" % ran[0])
+        with open(spec_pfad, "w", encoding="utf-8", newline=chr(10)) as f:
+            json.dump(spec, f)
+        code = main(["run", spec_pfad, "--state", os.path.join(tmp, "wrap.state.json"),
+                     "--", sys.executable, job, ziel])
+        # Same vocabulary as every other case, so the tallies can be counted in
+        # one pass. An earlier version printed "expected exit 1", which put these
+        # cases in a bucket of their own and made the documented breakdown wrong
+        # — caught by the CI job that compares the prose against a real run.
+        wort = {0: "pass", 1: "fail", 2: "skip", 3: "specerror"}
+        ok = code == want
+        print("  [%s] %s: expected %s, got %s"
+              % ("ok " if ok else "BAD", label, wort.get(want, want), wort.get(code, code)))
+        if not ok:
+            faults.append(label)
+
     def claim(label, condition):
         ran[0] += 1
         print("  [%s] %s" % ("ok " if condition else "BAD", label))
@@ -1226,6 +1264,22 @@ def selftest():
         claim("ATTACH did not create a file on disk", not os.path.exists(target))
 
         print("\n input handling")
+        SCHREIBT = ["import sys",
+                    "open(sys.argv[1], 'a', encoding='utf-8').write('x' * 50)"]
+        wrapper_fall("job works and the assertion holds",
+                     SCHREIBT + ["sys.exit(0)"], 0)
+        wrapper_fall("job wrote correctly but exited non-zero",
+                     SCHREIBT + ["sys.exit(7)"], 1)
+        # Two readings of the same run, and the difference is declared by the
+        # spec rather than guessed by the tool: without must_exist an absent
+        # target is ambiguous (the job may not have run, the path may be wrong,
+        # the volume may not be mounted), so it is a coverage gap. With it, the
+        # author has said the file must be there, and absence is a failure.
+        wrapper_fall("job exited zero and produced nothing — ambiguous, so incomplete",
+                     ["import sys", "sys.exit(0)"], 2)
+        wrapper_fall("same run, but the spec declares the target must exist",
+                     ["import sys", "sys.exit(0)"], 1, must_exist=True)
+
         try:
             probe_http_json({"kind": "http_json", "url": "file:///etc/hosts"}, "verify")
             claim("a file:// URL is refused", False)
@@ -1325,7 +1379,22 @@ def main(argv=None):
             results, state = verify(spec, state_path, args.max_baseline_age)
             text, code = report(spec, results, state)
             print(text)
-            print("\n(the command exited %d; that did not affect the result above)" % rc)
+            # The asymmetry is the whole point, and an earlier version got it
+            # half right. A zero exit proves nothing, so it must not count as
+            # success. A NON-zero exit is the job saying it did not finish, and
+            # swallowing that turns this wrapper into exactly the thing the
+            # first incident here describes: a wrapper that dropped the exit
+            # code and reported a clean run regardless. A reviewer refused to
+            # use `run` for that reason, and he was right.
+            if rc != 0:
+                print("\nThe command itself exited %d. Taken as a failure: a zero exit "
+                      "proves nothing, but a non-zero one is the job telling you it did "
+                      "not finish." % rc)
+                if code != 3:
+                    code = 1
+            else:
+                print("\n(the command exited 0 — on its own that is not evidence of "
+                      "anything, which is why the assertions above decide)")
             return code
 
         results, state = verify(spec, state_path, args.max_baseline_age)
