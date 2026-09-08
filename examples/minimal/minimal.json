@@ -1,0 +1,18 @@
+{
+  "name": "minimal-example",
+  "_what_this_says": "The report must gain at least one row, and must have been written today.",
+  "checks": [
+    {
+      "id": "report-grew",
+      "type": "effect",
+      "probe": { "kind": "file_size", "path": "out/report.csv" },
+      "expect": { "delta_min": 5 }
+    },
+    {
+      "id": "report-is-recent",
+      "type": "freshness",
+      "probe": { "kind": "file_mtime", "path": "out/report.csv", "must_exist": true },
+      "expect": { "max_age_hours": 1 }
+    }
+  ]
+}

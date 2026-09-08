@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+
+# Laufzeit-Zustand von effect_check, gehoert nie ins Repo
+*.state.json
+
+# Laufzeit-Artefakte des Beispiels
+examples/minimal/out/

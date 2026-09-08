@@ -1,0 +1,6 @@
+# Zeilenenden festnageln. Ohne das haengt der Inhalt des Repos davon ab,
+# auf welchem Betriebssystem jemand geklont hat - der Text waere derselbe,
+# die Bytes nicht.
+* text=auto eol=lf
+*.py text eol=lf
+*.md text eol=lf
