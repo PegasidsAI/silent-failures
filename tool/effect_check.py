@@ -467,14 +467,15 @@ class Result:
 
 
 EXPECT_KEYS = {
-    "effect": {"delta_min", "delta_max", "unchanged", "min", "max", "contains", "equals"},
+    "effect": {"delta_min", "delta_max", "unchanged", "min", "max",
+               "contains", "not_contains", "equals"},
     "freshness": {"max_age_hours"},
     "diversity": {"each_min", "min_groups", "require_groups", "allow_empty"},
     "invariant": set(),
 }
 
 DELTA_KEYS = {"delta_min", "delta_max", "unchanged"}
-ABSOLUTE_KEYS = {"min", "max", "contains", "equals"}
+ABSOLUTE_KEYS = {"min", "max", "contains", "not_contains", "equals"}
 
 
 def needs_baseline(chk):
@@ -533,6 +534,21 @@ def check_effect(chk, before, after):
             passes.append("contains %r" % needle)
         else:
             failures.append("expected %r in the result; not present" % needle)
+    if "not_contains" in exp:
+        # A substring is only a valid success criterion if the FAILURE output is
+        # known not to contain it. A reader described a probe that matched on
+        # "Cipher is" to decide a TLS handshake had succeeded — a failed
+        # handshake prints "New, (NONE), Cipher is (NONE)", which contains it.
+        # It reported major sites as compliant for weeks. The success token was
+        # a substring of the error line, so no amount of care in choosing the
+        # needle could separate the two cases; only naming the failure marker
+        # can. This tool had the same hole and no warning about it.
+        needle = exp["not_contains"]
+        text = after if isinstance(after, str) else str(after)
+        if needle in text:
+            failures.append("found %r, which marks the failure case" % needle)
+        else:
+            passes.append("does not contain %r" % needle)
     if "equals" in exp:
         if _same(after, exp["equals"]):
             passes.append("equals %r" % (exp["equals"],))
@@ -730,8 +746,13 @@ def validate_spec(spec):
                 "%s: unknown expect key(s) for type %r: %s. Known: %s"
                 % (c["id"], ctype, ", ".join(sorted(unknown)),
                    ", ".join(sorted(EXPECT_KEYS[ctype])) or "(none)"))
-        if exp.get("contains") == "":
-            raise SpecError("%s: expect.contains is empty, which matches everything" % c["id"])
+        for schluessel in ("contains", "not_contains"):
+            if exp.get(schluessel) == "":
+                raise SpecError("%s: expect.%s is empty, which matches everything"
+                                % (c["id"], schluessel))
+        if "contains" in exp and exp.get("contains") == exp.get("not_contains"):
+            raise SpecError("%s: contains and not_contains are the same string, "
+                            "which can never both hold" % c["id"])
         if "unchanged" in exp and (DELTA_KEYS & set(exp) - {"unchanged"}):
             raise SpecError("%s: 'unchanged' cannot be combined with a delta bound" % c["id"])
     return spec
@@ -976,6 +997,24 @@ def selftest():
         case("an empty 'contains' is rejected",
              S(type="effect", probe={"kind": "file_text", "path": out},
                expect={"contains": ""}), lambda: None, "specerror")
+        FEHLZEILE = "New, (NONE), Cipher is (NONE)\n"
+        ECHTZEILE = "New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384\n"
+        log = write("out/handshake.log", FEHLZEILE)
+        case("a needle that also appears in the failure output passes on its own",
+             S(type="effect", probe={"kind": "file_text", "path": log},
+               expect={"contains": "Cipher is"}), lambda: None, "pass")
+        case("naming the failure marker separates the two cases",
+             S(type="effect", probe={"kind": "file_text", "path": log},
+               expect={"contains": "Cipher is", "not_contains": "(NONE)"}),
+             lambda: None, "fail",
+             prepare=lambda: write("out/handshake.log", FEHLZEILE))
+        case("and the same assertion passes on a genuine success line",
+             S(type="effect", probe={"kind": "file_text", "path": log},
+               expect={"contains": "Cipher is", "not_contains": "(NONE)"}),
+             lambda: write("out/handshake.log", ECHTZEILE), "pass")
+        case("contains and not_contains identical is rejected",
+             S(type="effect", probe={"kind": "file_text", "path": log},
+               expect={"contains": "x", "not_contains": "x"}), lambda: None, "specerror")
         gone = os.path.join(tmp, "out", "absent.csv")
         case("a missing file is not a measured zero at verify time",
              S(type="effect", probe={"kind": "file_size", "path": gone},

@@ -136,12 +136,34 @@ Every probe that reads a path also accepts `must_exist` (see below). `command` t
 | `unchanged` | `effect` | must not have moved at all |
 | `min` / `max` | `effect` | absolute bound; needs no snapshot |
 | `contains` / `equals` | `effect` | the result must contain / equal this |
+| `not_contains` | `effect` | the result must **not** contain this — the failure marker |
 | `max_age_hours` | `freshness` | how old the observation may be |
 | `each_min` | `diversity` | every group must reach this — **not** the total |
 | `min_groups`, `require_groups` | `diversity` | how many groups, and which ones by name |
 | `allow_empty` | `diversity` | permit a result with no groups at all |
 
 **All stated expectations must hold.** An earlier version stopped at the first one it recognised, so `{"min": 5, "delta_min": 10}` passed on the minimum while the job did nothing at all.
+
+
+### The substring trap
+
+**A substring is only a valid success criterion if the failure output is known not to contain it.**
+
+A reader described a monitoring probe that matched on `Cipher is` to decide a TLS handshake had succeeded. A *failed* handshake prints:
+
+```
+New, (NONE), Cipher is (NONE)
+```
+
+which contains it. The probe reported major sites as compliant for weeks. No amount of care in choosing the needle separates those two cases, because the success token is a substring of the error line — the vocabularies overlap.
+
+This tool had the same hole and no warning about it. `not_contains` is the answer: name the **failure** marker alongside the success one.
+
+```json
+{ "contains": "Cipher is", "not_contains": "(NONE)" }
+```
+
+The habit worth taking from it is not the key but the question: **when you write a check, look at what the failure output actually says.** Almost nobody does, which is why this class survives so long.
 
 An `effect` assertion stated as a change needs a snapshot; one stated absolutely does not.
 
@@ -165,9 +187,9 @@ An `effect` assertion stated as a change needs a snapshot; one stated absolutely
 
 ## The self-test
 
-`selftest` runs **45 cases** against a temporary directory: 34 that assert a run outcome, and 11 that assert a property of the tool itself.
+`selftest` runs **49 cases** against a temporary directory: 38 that assert a run outcome, and 11 that assert a property of the tool itself.
 
-Of those 34, only **7 may come out green**. The other 27 must not — 19 failures, 6 coverage gaps, 2 rejected specifications — and the self-test fails if any of them passes. Among them:
+Of those 38, only **9 may come out green**. The other 29 must not — 20 failures, 6 coverage gaps, 3 rejected specifications — and the self-test fails if any of them passes. Among them:
 
 - a job that wrote *only a header row*, which a size threshold alone would wave through
 - a source that died while the **total stayed high** because others covered for it
