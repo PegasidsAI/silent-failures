@@ -74,7 +74,7 @@ If you have never discovered that a green job had quietly stopped producing anyt
 
 ## What is in here
 
-- **[`tool/`](tool/)** — [`effect_check.py`](tool/effect_check.py). Standard library only, no dependencies. `effect_check.py selftest` runs 43 cases. Of the 32 that assert a run outcome, only 6 may come out green; the other 26 must not, and the self-test fails if any of them passes. A suite that only demonstrates that green is reachable demonstrates nothing.
+- **[`tool/`](tool/)** — [`effect_check.py`](tool/effect_check.py). Standard library only, no dependencies. `effect_check.py selftest` runs 45 cases. Of the 34 that assert a run outcome, only 7 may come out green; the other 27 must not, and the self-test fails if any of them passes. A suite that only demonstrates that green is reachable demonstrates nothing.
 - **[`examples/minimal/`](examples/minimal/)** — two commands, two minutes. The same check against a job that works and a job that does nothing while printing the same log line and exiting zero.
 - **[`incidents/`](incidents/)** — four post-mortems, one per failure. Fixed structure: what should have happened, what did, how long it went unnoticed, what the monitoring said at the time, root cause, the generalisable detection rule, and what I still do not know.
 

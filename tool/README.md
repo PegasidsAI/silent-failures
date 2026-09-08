@@ -165,9 +165,9 @@ An `effect` assertion stated as a change needs a snapshot; one stated absolutely
 
 ## The self-test
 
-`selftest` runs **43 cases** against a temporary directory: 32 that assert a run outcome, and 11 that assert a property of the tool itself.
+`selftest` runs **45 cases** against a temporary directory: 34 that assert a run outcome, and 11 that assert a property of the tool itself.
 
-Of those 32, only **6 may come out green**. The other 26 must not — 19 failures, 5 coverage gaps, 2 rejected specifications — and the self-test fails if any of them passes. Among them:
+Of those 34, only **7 may come out green**. The other 27 must not — 19 failures, 6 coverage gaps, 2 rejected specifications — and the self-test fails if any of them passes. Among them:
 
 - a job that wrote *only a header row*, which a size threshold alone would wave through
 - a source that died while the **total stayed high** because others covered for it
