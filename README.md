@@ -2,6 +2,8 @@
 
 **How does an unattended system know that its picture of reality is correct?**
 
+[![self-test](https://github.com/PegasidsAI/silent-failures/actions/workflows/self-test.yml/badge.svg)](https://github.com/PegasidsAI/silent-failures/actions/workflows/self-test.yml)
+
 ---
 
 I run a small fleet of AI agents unattended — scheduled jobs, around the clock, on my own hardware, with a watchdog and an error channel. This repository is what I learned when they were confidently wrong.
